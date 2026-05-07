@@ -44,25 +44,6 @@ if (ctx) {
 }
 
 /* ===============================
-   SOCKET.IO
-=============================== */
-if (typeof io !== "undefined") {
-    const socket = io();
-
-    socket.on("metrics_update", function (data) {
-        updateDashboard(data);
-
-        if (data.risk === "Critical") {
-            showToast("⚠ Critical Risk Detected");
-        }
-
-        if (data.heavy_cpu > 90) {
-            showToast("⚠ Heavy Application Overload");
-        }
-    });
-}
-
-/* ===============================
    ANIMATION
 =============================== */
 function animateBox(id, label, start, end) {
@@ -85,7 +66,10 @@ function animateBox(id, label, start, end) {
             clearInterval(timer);
         }
 
-        el.innerHTML = label + ": " + Math.round(current) + "%";
+        el.innerHTML = `
+            <h3>${label}</h3>
+            <p>${Math.round(current)}%</p>
+        `;
 
     }, 20);
 }
@@ -121,30 +105,51 @@ function updateDashboard(data) {
     oldDisk = data.disk;
     oldBattery = data.battery;
 
-    setText("network", "Network: " + data.network + " MB");
-    setText("prediction", "Prediction: " + data.prediction);
-    setText("status", "Load Balancer: " + data.status);
-    setText("risk", "Risk Level: " + data.risk);
+    setText("network", `
+        <h3>Network</h3>
+        <p>${data.network} MB</p>
+    `);
+
+    setText("prediction", `
+        <h3>Prediction</h3>
+        <p>${data.prediction}</p>
+    `);
+
+    setText("status", `
+        <h3>Load Balancer</h3>
+        <p>${data.status}</p>
+    `);
+
+    setText("risk", `
+        <h3>Risk Level</h3>
+        <p>${data.risk}</p>
+    `);
 
     if (data.temp == 0) {
-        setText("temp", "Temperature: Not Supported");
+        setText("temp", `
+            <h3>Temperature</h3>
+            <p>Not Supported</p>
+        `);
     } else {
-        setText("temp", "Temperature: " + data.temp + "°C");
+        setText("temp", `
+            <h3>Temperature</h3>
+            <p>${data.temp}°C</p>
+        `);
     }
 
-    setText("warning", "Warning: " + data.warning_message);
+    setText("warning", `
+        <h3>Warning</h3>
+        <p>${data.warning_message}</p>
+    `);
 
-    setText(
-        "process",
-        "Heavy App: " +
-        data.heavy_name +
-        " (" +
-        data.heavy_cpu +
-        "% CPU)"
-    );
+    setText("process", `
+        <h3>Heavy Application</h3>
+        <p>${data.heavy_name} (${data.heavy_cpu}% CPU)</p>
+    `);
 
     /* Warning colors */
     const warn = document.getElementById("warning");
+
     if (warn) {
         warn.style.background =
             data.warning_message !== "No Warning"
@@ -154,6 +159,7 @@ function updateDashboard(data) {
 
     /* Heavy process colors */
     const box = document.getElementById("process");
+
     if (box) {
         if (data.heavy_cpu > 70) {
             box.style.background = "red";
@@ -166,9 +172,11 @@ function updateDashboard(data) {
 
     /* Risk colors */
     const riskBox = document.getElementById("risk");
+
     if (riskBox) {
         if (data.risk === "Critical") {
             riskBox.style.background = "red";
+            showToast("⚠ Critical Risk Detected");
         } else if (data.risk === "Warning") {
             riskBox.style.background = "orange";
         } else {
@@ -189,11 +197,13 @@ function updateChart(data) {
     const time = new Date().toLocaleTimeString();
 
     myChart.data.labels.push(time);
+
     myChart.data.datasets[0].data.push(data.cpu);
     myChart.data.datasets[1].data.push(data.ram);
     myChart.data.datasets[2].data.push(data.disk);
 
     if (myChart.data.labels.length > 10) {
+
         myChart.data.labels.shift();
 
         myChart.data.datasets[0].data.shift();
@@ -205,26 +215,53 @@ function updateChart(data) {
 }
 
 /* ===============================
-   FETCH METRICS
+   DEMO METRICS
 =============================== */
 function loadMetrics() {
 
-    fetch("/metrics")
-        .then(response => response.json())
-        .then(data => {
-            updateDashboard(data);
-        })
-        .catch(error => {
-            console.log("Metrics error:", error);
-        });
+    const cpu = Math.floor(Math.random() * 100);
+    const ram = Math.floor(Math.random() * 100);
+    const disk = Math.floor(Math.random() * 100);
+
+    let risk = "Safe";
+
+    if (cpu > 85 || ram > 85) {
+        risk = "Critical";
+    } else if (cpu > 60 || ram > 60) {
+        risk = "Warning";
+    }
+
+    const data = {
+        cpu: cpu,
+        ram: ram,
+        disk: disk,
+        battery: Math.floor(Math.random() * 100),
+        network: Math.floor(Math.random() * 500),
+        prediction: cpu > 80 ? "Overload Expected" : "Stable",
+        status: cpu > 75 ? "Balancing Active" : "Balanced",
+        risk: risk,
+        temp: Math.floor(Math.random() * 30) + 40,
+        warning_message:
+            risk === "Critical"
+                ? "System Overload Detected"
+                : "No Warning",
+        heavy_name: "Chrome",
+        heavy_cpu: cpu
+    };
+
+    updateDashboard(data);
 }
 
 /* ===============================
    HELPERS
 =============================== */
 function setText(id, text) {
+
     const el = document.getElementById(id);
-    if (el) el.innerHTML = text;
+
+    if (el) {
+        el.innerHTML = text;
+    }
 }
 
 /* ===============================
@@ -233,11 +270,13 @@ function setText(id, text) {
 window.onload = function () {
 
     const loader = document.getElementById("loader");
+
     if (loader) {
         loader.style.display = "none";
     }
 
     const bar = document.getElementById("bar");
+
     if (bar) {
         setTimeout(() => {
             bar.style.width = "100%";
@@ -245,5 +284,6 @@ window.onload = function () {
     }
 
     loadMetrics();
+
     setInterval(loadMetrics, 3000);
 };
